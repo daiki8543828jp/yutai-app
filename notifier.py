@@ -1,18 +1,21 @@
-import tomllib
 import requests
 from supabase import create_client, Client
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
+import streamlit as st
+import os
 
 # --- 1. 設定ファイルの読み込み ---
-# st.secrets は Streamlit 起動時専用のため、ここでは tomllib を使って直接読み込みます
-# (Python 3.11以降に標準搭載されている tomllib を使用)
-with open(".streamlit/secrets.toml", "rb") as f:
-    secrets = tomllib.load(f)
-
-SUPABASE_URL = secrets["SUPABASE_URL"]
-SUPABASE_KEY = secrets["SUPABASE_KEY"]
-SLACK_WEBHOOK_URL = secrets["SLACK_WEBHOOK_URL"]
+# Streamlit Cloudのシークレット、または環境変数から読み込む
+try:
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+    SLACK_WEBHOOK_URL = st.secrets["SLACK_WEBHOOK_URL"]
+except Exception:
+    # 今後のGitHub Actions (自動実行) 用のフォールバック
+    SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+    SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+    SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 
 # Supabaseクライアントの初期化
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -31,8 +34,8 @@ def check_and_notify():
     """有効期限をチェックして通知する関数"""
     today = date.today()
     # ターゲット日付の計算
-    target_1_month = today + relativedelta(months=1)  # 1ヶ月後
-    target_1_half_week = today + relativedelta(days=10) # 1.5週間後（約10日後）
+    target_1_month = today + relativedelta(months=1)
+    target_1_half_week = today + relativedelta(days=10)
 
     # Supabaseから全データを取得
     response = supabase.table("yutai").select("*").execute()
@@ -46,7 +49,6 @@ def check_and_notify():
     for row in records:
         name = row['name']
         amount = row.get('amount', '金額未定')
-        # 文字列の日付('YYYY-MM-DD')を date オブジェクトに変換
         expiry_date = datetime.strptime(row['expiry_date'], '%Y-%m-%d').date()
 
         # 【1ヶ月前】の判定
