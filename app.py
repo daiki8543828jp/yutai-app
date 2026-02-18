@@ -130,7 +130,7 @@ with tab2:
 with tab3:
     st.subheader("登録済みデータの編集・削除")
     if not df.empty:
-        # ▼ 追加: 操作モードの切り替え ▼
+        # 操作モードの切り替え
         operation_mode = st.radio(
             "操作を選択してください", 
             ["✏️ 1件を選択して編集する", "🗑️ 複数を選択して一括削除する"], 
@@ -166,24 +166,33 @@ with tab3:
                     else:
                         st.error("名称は必須入力です。")
 
-        # 【削除モード】複数選択と確認メッセージ
+        # ▼ 修正ポイント: 【削除モード】リスト形式でチェックボックス表示 ▼
         elif operation_mode == "🗑️ 複数を選択して一括削除する":
-            options = {f"{row['name']} (期限: {row['expiry_date']})": row['id'] for index, row in df.iterrows()}
+            st.write("削除したい優待にチェックを入れてください：")
             
-            # multiselectを使って複数選べるようにする
-            selected_labels = st.multiselect("削除する優待を選択してください（複数選択可）", list(options.keys()))
+            # チェックされたIDを保存するリスト
+            selected_ids = []
             
-            if selected_labels:
-                # 選択された時だけ警告メッセージと確認チェックボックスを表示
-                st.warning(f"⚠️ 選択された {len(selected_labels)} 件のデータを削除します。この操作は元に戻せません。")
-                confirm_delete = st.checkbox("本当に削除しますか？（チェックを入れると削除ボタンが押せるようになります）")
+            # 登録されているデータをループして、それぞれにチェックボックスを表示
+            for index, row in df.iterrows():
+                # 表示するテキスト（名称を太字にして見やすくする）
+                label = f"**{row['name']}** （金額: {row.get('amount', 0)}円, 期限: {row['expiry_date']}）"
+                
+                # チェックボックスを生成。チェックされたらリストにIDを追加
+                if st.checkbox(label, key=f"del_{row['id']}"):
+                    selected_ids.append(row['id'])
+            
+            # 1つでもチェックされていれば、削除確認エリアを表示
+            if selected_ids:
+                st.markdown("---") # 区切り線
+                st.warning(f"⚠️ 選択された **{len(selected_ids)}** 件のデータを削除します。この操作は元に戻せません。")
+                confirm_delete = st.checkbox("本当に削除しますか？（チェックを入れると削除ボタンが有効になります）")
                 
                 # disabled を使って、チェックが入っていない時はボタンを押せなくする
                 if st.button("選択したデータを一括削除", type="primary", disabled=not confirm_delete):
-                    for label in selected_labels:
-                        delete_id = options[label]
+                    for delete_id in selected_ids:
                         delete_data(delete_id) # 複数回削除処理を実行
-                    st.success(f"{len(selected_labels)} 件のデータを削除しました！")
+                    st.success(f"{len(selected_ids)} 件のデータを削除しました！")
                     st.rerun()
 
     else:
