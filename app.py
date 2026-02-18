@@ -50,13 +50,15 @@ with st.sidebar:
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
 
+# データ取得（全タブで使うため外に出す）
+df = load_data()
+
 # タブを3つに分割
-tab1, tab2, tab3 = st.tabs(["📋 優待一覧", "➕ 新規登録", "✏️ 編集・削除"])
+tab1, tab2, tab3 = st.tabs(["📋 優待一覧", "➕ 新規登録", "⚙️ 編集・削除"])
 
 # --- タブ1: 一覧表示 ---
 with tab1:
     st.subheader("登録済み優待一覧")
-    df = load_data()
     
     if not df.empty:
         # カラム名を日本語に変換
@@ -78,7 +80,7 @@ with tab1:
         is_ascending = True if sort_order == "昇順" else False
         df_display = df_display.sort_values(by=sort_col, ascending=is_ascending)
 
-        # ▼ 修正ポイント: HTMLタグを左詰めにして誤作動を防止し、デザインを整える ▼
+        # HTMLタグを左詰めにして誤作動を防止し、デザインを整える
         table_html = df_display.to_html(index=False)
         
         html_code = f"""
@@ -102,7 +104,6 @@ with tab1:
 </div>
 """
         st.markdown(html_code, unsafe_allow_html=True)
-        # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     else:
         st.info("現在登録されている株主優待はありません。")
 
@@ -129,39 +130,61 @@ with tab2:
 with tab3:
     st.subheader("登録済みデータの編集・削除")
     if not df.empty:
-        options = {f"{row['name']} (期限: {row['expiry_date']})": row['id'] for index, row in df.iterrows()}
-        selected_label = st.selectbox("編集・削除する優待を選択してください", list(options.keys()))
-        selected_id = options[selected_label]
-        
-        target_row = df[df['id'] == selected_id].iloc[0]
-        
-        current_amount = int(target_row['amount']) if pd.notna(target_row['amount']) else 0
-        current_memo = str(target_row['memo']) if pd.notna(target_row['memo']) else ""
-        current_date = datetime.strptime(str(target_row['expiry_date']), '%Y-%m-%d').date()
+        # ▼ 追加: 操作モードの切り替え ▼
+        operation_mode = st.radio(
+            "操作を選択してください", 
+            ["✏️ 1件を選択して編集する", "🗑️ 複数を選択して一括削除する"], 
+            horizontal=True
+        )
+        st.divider()
 
-        with st.form("edit_form"):
-            new_name = st.text_input("名称", value=str(target_row['name']))
-            new_amount = st.number_input("金額 (円)", min_value=0, step=500, value=current_amount)
-            new_expiry_date = st.date_input("有効期限", value=current_date)
-            new_memo = st.text_area("メモ", value=current_memo)
+        # 【編集モード】従来通り1件ずつ編集
+        if operation_mode == "✏️ 1件を選択して編集する":
+            options = {f"{row['name']} (期限: {row['expiry_date']})": row['id'] for index, row in df.iterrows()}
+            selected_label = st.selectbox("編集する優待を選択してください", list(options.keys()))
+            selected_id = options[selected_label]
             
-            col1, col2 = st.columns(2)
-            with col1:
-                update_btn = st.form_submit_button("この内容で更新")
-            with col2:
-                delete_btn = st.form_submit_button("このデータを削除", type="primary")
+            target_row = df[df['id'] == selected_id].iloc[0]
+            
+            current_amount = int(target_row['amount']) if pd.notna(target_row['amount']) else 0
+            current_memo = str(target_row['memo']) if pd.notna(target_row['memo']) else ""
+            current_date = datetime.strptime(str(target_row['expiry_date']), '%Y-%m-%d').date()
+
+            with st.form("edit_form"):
+                new_name = st.text_input("名称", value=str(target_row['name']))
+                new_amount = st.number_input("金額 (円)", min_value=0, step=500, value=current_amount)
+                new_expiry_date = st.date_input("有効期限", value=current_date)
+                new_memo = st.text_area("メモ", value=current_memo)
                 
-            if update_btn:
-                if new_name:
-                    update_data(selected_id, new_name, new_amount, new_expiry_date, new_memo)
-                    st.success("データを更新しました！")
-                    st.rerun()
-                else:
-                    st.error("名称は必須入力です。")
+                update_btn = st.form_submit_button("この内容で更新")
                     
-            if delete_btn:
-                delete_data(selected_id)
-                st.warning(f"「{target_row['name']}」を削除しました。")
-                st.rerun()
+                if update_btn:
+                    if new_name:
+                        update_data(selected_id, new_name, new_amount, new_expiry_date, new_memo)
+                        st.success("データを更新しました！")
+                        st.rerun()
+                    else:
+                        st.error("名称は必須入力です。")
+
+        # 【削除モード】複数選択と確認メッセージ
+        elif operation_mode == "🗑️ 複数を選択して一括削除する":
+            options = {f"{row['name']} (期限: {row['expiry_date']})": row['id'] for index, row in df.iterrows()}
+            
+            # multiselectを使って複数選べるようにする
+            selected_labels = st.multiselect("削除する優待を選択してください（複数選択可）", list(options.keys()))
+            
+            if selected_labels:
+                # 選択された時だけ警告メッセージと確認チェックボックスを表示
+                st.warning(f"⚠️ 選択された {len(selected_labels)} 件のデータを削除します。この操作は元に戻せません。")
+                confirm_delete = st.checkbox("本当に削除しますか？（チェックを入れると削除ボタンが押せるようになります）")
+                
+                # disabled を使って、チェックが入っていない時はボタンを押せなくする
+                if st.button("選択したデータを一括削除", type="primary", disabled=not confirm_delete):
+                    for label in selected_labels:
+                        delete_id = options[label]
+                        delete_data(delete_id) # 複数回削除処理を実行
+                    st.success(f"{len(selected_labels)} 件のデータを削除しました！")
+                    st.rerun()
+
     else:
-        st.info("編集できるデータがありません。")
+        st.info("編集・削除できるデータがありません。")
