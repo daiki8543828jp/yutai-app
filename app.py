@@ -78,27 +78,30 @@ with tab1:
         is_ascending = True if sort_order == "昇順" else False
         df_display = df_display.sort_values(by=sort_col, ascending=is_ascending)
 
-        # ▼ 修正ポイント: HTML/CSSで「完全な中央揃え」と「インデックス削除」を実現 ▼
-        # index=False で不要な数字を消しつつHTMLの表に変換
-        table_html = df_display.to_html(index=False, escape=True)
+        # ▼ 修正ポイント: HTMLタグを左詰めにして誤作動を防止し、デザインを整える ▼
+        table_html = df_display.to_html(index=False)
         
-        # CSSを使って強制的に中央揃えにし、画面幅に合わせる
-        st.markdown(
-            f"""
-            <style>
-            .center-table table {{
-                width: 100%;
-            }}
-            .center-table th, .center-table td {{
-                text-align: center !important; /* 強制的にすべて中央揃え */
-            }}
-            </style>
-            <div class="center-table">
-                {table_html}
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
+        html_code = f"""
+<style>
+.custom-table table {{
+    width: 100%;
+    border-collapse: collapse;
+}}
+.custom-table th, .custom-table td {{
+    text-align: center !important;
+    padding: 10px;
+    border-bottom: 1px solid #e6e6f1;
+}}
+.custom-table th {{
+    background-color: #f0f2f6;
+    color: #31333F;
+}}
+</style>
+<div class="custom-table">
+{table_html}
+</div>
+"""
+        st.markdown(html_code, unsafe_allow_html=True)
         # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     else:
         st.info("現在登録されている株主優待はありません。")
