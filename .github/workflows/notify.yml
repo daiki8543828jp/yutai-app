@@ -1,0 +1,31 @@
+name: Daily Yutai Notification
+
+on:
+  schedule:
+    # 毎日 日本時間 朝9:00 (UTC 0:00) に実行
+    - cron: '0 0 * * *'
+  workflow_dispatch: # GitHub画面から手動でテスト実行できるようにする設定
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          
+      - name: Run notifier
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          python notifier.py
