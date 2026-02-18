@@ -11,7 +11,6 @@ supabase: Client = create_client(url, key)
 
 # --- データベース操作関数 ---
 def load_data():
-    # 取得時のデフォルト並び順指定を外し、後でPandas側でソートするように変更
     response = supabase.table("yutai").select("*").execute()
     return pd.DataFrame(response.data)
 
@@ -68,7 +67,7 @@ with tab1:
             'memo': 'メモ'
         })
 
-        # ▼ 並び替え（ソート）用のUI ▼
+        # 並び替え（ソート）用のUI
         col_sort1, col_sort2 = st.columns(2)
         with col_sort1:
             sort_col = st.selectbox("並び替え項目", ["有効期限", "金額 (円)", "名称"])
@@ -79,13 +78,17 @@ with tab1:
         is_ascending = True if sort_order == "昇順" else False
         df_display = df_display.sort_values(by=sort_col, ascending=is_ascending)
 
-        # ▼ セルとヘッダーの中央揃え ▼
-        styled_df = df_display.style.set_properties(**{'text-align': 'center'})
-        styled_df = styled_df.set_table_styles([
-            {'selector': 'th', 'props': [('text-align', 'center')]}
+        # ▼ 修正ポイント: st.table を使って中央揃えを強制適用する ▼
+        styled_df = df_display.style.hide(axis="index").set_properties(**{
+            'text-align': 'center'
+        }).set_table_styles([
+            {'selector': 'th', 'props': [('text-align', 'center')]},
+            {'selector': 'td', 'props': [('text-align', 'center')]}
         ])
 
-        st.dataframe(styled_df, width='stretch', hide_index=True)
+        # st.dataframe ではなく st.table で表示
+        st.table(styled_df)
+        # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     else:
         st.info("現在登録されている株主優待はありません。")
 
