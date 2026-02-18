@@ -78,16 +78,27 @@ with tab1:
         is_ascending = True if sort_order == "昇順" else False
         df_display = df_display.sort_values(by=sort_col, ascending=is_ascending)
 
-        # ▼ 修正ポイント: st.table を使って中央揃えを強制適用する ▼
-        styled_df = df_display.style.hide(axis="index").set_properties(**{
-            'text-align': 'center'
-        }).set_table_styles([
-            {'selector': 'th', 'props': [('text-align', 'center')]},
-            {'selector': 'td', 'props': [('text-align', 'center')]}
-        ])
-
-        # st.dataframe ではなく st.table で表示
-        st.table(styled_df)
+        # ▼ 修正ポイント: HTML/CSSで「完全な中央揃え」と「インデックス削除」を実現 ▼
+        # index=False で不要な数字を消しつつHTMLの表に変換
+        table_html = df_display.to_html(index=False, escape=True)
+        
+        # CSSを使って強制的に中央揃えにし、画面幅に合わせる
+        st.markdown(
+            f"""
+            <style>
+            .center-table table {{
+                width: 100%;
+            }}
+            .center-table th, .center-table td {{
+                text-align: center !important; /* 強制的にすべて中央揃え */
+            }}
+            </style>
+            <div class="center-table">
+                {table_html}
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
         # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     else:
         st.info("現在登録されている株主優待はありません。")
